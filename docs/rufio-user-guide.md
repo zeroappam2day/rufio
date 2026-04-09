@@ -134,9 +134,33 @@ npx ruflo@latest task status <task-id>
 | Provider | Model | Use Case | Cost |
 |----------|-------|----------|------|
 | Ollama (local) | qwen3:8b | Primary — fast, private, GPU | Free |
-| Ollama (local) | nomic-embed-text | Embeddings (384-dim) | Free |
+| Ollama (local) | nomic-embed-text | Embeddings (768-dim) — direct Ollama use only | Free |
 | OpenRouter | nvidia/nemotron-3-super-120b-a12b:free | Cloud fallback — heavy tasks | Free |
 | OpenRouter | qwen/qwen3.6-plus | Premium cloud | Paid |
+
+### Also installed but not configured
+
+| Model | Size | Notes |
+|-------|------|-------|
+| qwen3.5:0.8b | 1.0 GB | Too small for agent work (873M params). Useful for fast local testing. |
+| gemma4:e2b-it-q4_K_M | 7.2 GB | 5.1B params. Could be configured as a heavier local alternative to qwen3:8b. |
+
+## Embedding Systems (Important)
+
+The MCP server does NOT call Ollama for embeddings. It uses its own internal hash-based functions. There are 4 independent embedding dimensions in the system:
+
+| System | Dim | Where | Type |
+|--------|-----|-------|------|
+| MCP hook routing (shared.js `simpleEmbed`) | 64 | pre-edit, route, explain hooks | Hash — NOT semantic |
+| SONA intelligence bridge | 128 | Neural learning, pattern adaptation | Hash — NOT semantic |
+| AgentDB / ONNX fallback | 384 | `memory_store`, vector search, `claude-flow.config.json` | Hash fallback (real ONNX if runtime loads `all-MiniLM-L6-v2`) |
+| Ollama `nomic-embed-text` | 768 | Direct `ollama embed` CLI calls, `.swarm/schema.sql` default | Real neural embeddings |
+
+**What this means:**
+- `claude-flow.config.json` says `vectorDimension: 384` — this is correct. It controls the AgentDB fast path.
+- `nomic-embed-text` (768-dim) is only used when you explicitly call Ollama's embed API, NOT by the MCP memory tools.
+- The `simpleEmbed` functions are deterministic hashes (charCode math), not neural embeddings. They work for pattern matching but don't understand meaning.
+- If you need true semantic search, use Ollama's embed API directly or wait for ONNX `all-MiniLM-L6-v2` runtime support.
 
 ## File Layout
 
